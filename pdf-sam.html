@@ -1,0 +1,90 @@
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <script src="https://unpkg.com/pdf-lib@1.4.0"></script>
+    <script src="https://unpkg.com/downloadjs@1.4.7"></script>
+  </head>
+
+  <body>
+    <p>Click the button to create a new PDF document with <code>pdf-lib</code></p>
+    <button onclick="createPdf()">Create PDF</button>
+    <p class="small">(Your browser will download the resulting file)</p>
+	
+<input type="file" id="files" name="files[]" multiple />
+<output id="list"></output>
+  </body>
+
+  <script>
+	//get the file(s)
+	
+  function handleFileSelect(evt) {
+    var files = evt.target.files; // FileList object
+
+    // Loop through the FileList and render image files as thumbnails.
+    for (var i = 0, f; f = files[i]; i++) {
+
+      var reader = new FileReader();
+
+      // Closure to capture the file information.
+      reader.onload = (function(theFile) {
+        return function(e) {
+          // Render thumbnail.
+          var span = document.createElement('span');
+          span.innerHTML = ['<img class="thumb" src="', e.target.result,
+                            '" title="', escape(theFile.name), '"/>'].join('');
+          document.getElementById('list').insertBefore(span, null);
+		  
+		  modifyPdf(reader.result);
+        };
+      })(f);
+
+      // Read in the image file as a data URL.
+      reader.readAsDataURL(f);
+	  
+	}
+  }
+
+  document.getElementById('files').addEventListener('change', handleFileSelect, false);
+	
+	
+	
+	//edit the files with pdf-lib
+	const { degrees, PDFDocument, rgb, StandardFonts } = PDFLib
+
+			async function modifyPdf(pdfURL) {
+			  // Fetch an existing PDF document
+			  const url = pdfURL;
+			  const existingPdfBytes = await fetch(url).then(res => res.arrayBuffer())
+
+			  // Load a PDFDocument from the existing PDF bytes
+			  const pdfDoc = await PDFDocument.load(existingPdfBytes)
+
+			  // Embed the Helvetica font
+			  const helveticaFont = await pdfDoc.embedFont(StandardFonts.Helvetica)
+
+			  // Get the first page of the document
+			  const pages = pdfDoc.getPages()
+			  const firstPage = pages[0]
+
+			  // Get the width and height of the first page
+			  const { width, height } = firstPage.getSize()
+
+			  // Draw a string of text diagonally across the first page
+			  firstPage.drawText('This text was added with JavaScript!', {
+				x: 5,
+				y: height / 2 + 300,
+				size: 50,
+				font: helveticaFont,
+				color: rgb(0.95, 0.1, 0.1),
+				rotate: degrees(-45),
+			  })
+
+			  // Serialize the PDFDocument to bytes (a Uint8Array)
+			  const pdfBytes = await pdfDoc.save()
+
+					// Trigger the browser to download the PDF document
+			  download(pdfBytes, "pdf-lib_modification_example.pdf", "application/pdf");
+			}
+
+  </script>
+</html>
