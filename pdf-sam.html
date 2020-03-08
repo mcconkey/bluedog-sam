@@ -2,18 +2,63 @@
   <head>
     <meta charset="utf-8" />
     <script src="https://unpkg.com/pdf-lib@1.4.0"></script>
-    <script src="https://unpkg.com/downloadjs@1.4.7"></script>
+	<script src="https://unpkg.com/downloadjs@1.4.7"></script>
+	<script src="https://unpkg.com/pdfjs-dist@2.2.228"></script>
+    <style>
+    	body{ 
+    		margin: 0px;
+    		font-family: Helvetica; 
+    	}
+    	header {
+    		background-color: #154ea3;
+    		padding: 5px;
+    	}
+
+    	h1 { 
+    		color: white;
+    		font-family: Helvetica;
+    		margin: 0px;
+    		}
+    	
+    	main{
+    		padding: 10px;
+    	}
+
+		.thumb{
+			border: gray;
+			border-width: 2px;
+			border-style: solid;
+			padding:4px;
+			height: 150px;
+			width: 100px;
+			float: left;
+			background: lightblue;
+			margin-right: 5px;
+		}
+
+		output {
+			padding: 4px;
+			display:block;
+		}
+
+    </style>
   </head>
 
   <body>
-    <p>Click the button to create a new PDF document with <code>pdf-lib</code></p>
-    <button onclick="createPdf()">Create PDF</button>
-    <p class="small">(Your browser will download the resulting file)</p>
-	
-<input type="file" id="files" name="files[]" multiple />
-<output id="list"></output>
+  	<header>
+  		<h1>Blue Dog</h1>
+  	</header>
+    <main>
+  		<input type="file" id="files" name="files[]" multiple />
+		<output id="list">
+			<div class="thumb"></div>
+		</output>
+		<br />
+		<br />
+		<button>Save PDF</button>
+	</main>
+  <footer></footer>
   </body>
-
   <script>
 	//get the file(s)
 	
@@ -29,12 +74,12 @@
       reader.onload = (function(theFile) {
         return function(e) {
           // Render thumbnail.
-          var span = document.createElement('span');
-          span.innerHTML = ['<img class="thumb" src="', e.target.result,
-                            '" title="', escape(theFile.name), '"/>'].join('');
-          document.getElementById('list').insertBefore(span, null);
+         // var span = document.createElement('span');
+          //span.innerHTML = ['<img class="thumb" src="', e.target.result,
+          //                  '" title="', escape(theFile.name), '"/>'].join('');
+          //document.getElementById('list').insertBefore(span, null);
 		  
-		  modifyPdf(reader.result);
+		  showPDFThumbnail(reader.result);
         };
       })(f);
 
@@ -51,40 +96,106 @@
 	//edit the files with pdf-lib
 	const { degrees, PDFDocument, rgb, StandardFonts } = PDFLib
 
-			async function modifyPdf(pdfURL) {
-			  // Fetch an existing PDF document
-			  const url = pdfURL;
-			  const existingPdfBytes = await fetch(url).then(res => res.arrayBuffer())
+	async function showPDFThumbnail(pdfURL){
+		const { degrees, PDFDocument, rgb, StandardFonts } = PDFLib
+		const url = pdfURL;
+		const existingPdfBytes = await fetch(url).then(res => res.arrayBuffer());
 
-			  // Load a PDFDocument from the existing PDF bytes
-			  const pdfDoc = await PDFDocument.load(existingPdfBytes)
+		const pdfDoc = await PDFDocument.load(existingPdfBytes);
 
-			  // Embed the Helvetica font
-			  const helveticaFont = await pdfDoc.embedFont(StandardFonts.Helvetica)
+		// Get the first page of the document
+		const pages = pdfDoc.getPages();
+		const firstPage = pages[0];
 
-			  // Get the first page of the document
-			  const pages = pdfDoc.getPages()
-			  const firstPage = pages[0]
+		// Serialize the PDFDocument to bytes (a Uint8Array)
+		const pdfBytes = await pdfDoc.save();
 
-			  // Get the width and height of the first page
-			  const { width, height } = firstPage.getSize()
+		reader = new FileReader();
+		
+		reader.onload = (function(theFile) {
+			return function(e) {
+			// Render thumbnail.
+			var div = document.createElement('div');
+			div.className = "thumb";
+						
+			var img = document.createElement('img');
+			createThumbnail(pdfURL, img, 150, 100);
+			div.appendChild(img);
+			
+			document.getElementById('list').insertBefore(div, null);
+			//showPDFThumbnail(reader.result);
+			};
+      	});
 
-			  // Draw a string of text diagonally across the first page
-			  firstPage.drawText('This text was added with JavaScript!', {
-				x: 5,
-				y: height / 2 + 300,
-				size: 50,
-				font: helveticaFont,
-				color: rgb(0.95, 0.1, 0.1),
-				rotate: degrees(-45),
-			  })
+		reader.readAsDataURL(pdfBytes);
 
-			  // Serialize the PDFDocument to bytes (a Uint8Array)
-			  const pdfBytes = await pdfDoc.save()
+		
+	}
 
-					// Trigger the browser to download the PDF document
-			  download(pdfBytes, "pdf-lib_modification_example.pdf", "application/pdf");
-			}
+	async function modifyPdf(pdfURL) {
+		// Fetch an existing PDF document
+		const url = pdfURL;
+		const existingPdfBytes = await fetch(url).then(res => res.arrayBuffer());
 
+		// Load a PDFDocument from the existing PDF bytes
+		const pdfDoc = await PDFDocument.load(existingPdfBytes)
+
+		// Embed the Helvetica font
+		const helveticaFont = await pdfDoc.embedFont(StandardFonts.Helvetica)
+
+		// Get the first page of the document
+		const pages = pdfDoc.getPages()
+		const firstPage = pages[0]
+
+		// Get the width and height of the first page
+		const { width, height } = firstPage.getSize()
+
+		// Draw a string of text diagonally across the first page
+		firstPage.drawText('This text was added with JavaScript!', {
+		x: 5,
+		y: height / 2 + 300,
+		size: 50,
+		font: helveticaFont,
+		color: rgb(0.95, 0.1, 0.1),
+		rotate: degrees(-45),
+		})
+
+		// Serialize the PDFDocument to bytes (a Uint8Array)
+		const pdfBytes = await pdfDoc.save()
+
+			// Trigger the browser to download the PDF document
+		download(pdfBytes, "pdf-lib_modification_example.pdf", "application/pdf");
+	}
+
+	// create a thumbnail 
+
+	async function createThumbnail(filepath, thumbImage, height, width){
+
+		pdfjsLib.disableworker = true;
+		
+		pdfjsLib.getDocument(filepath).then( function (pdf){
+			pdf.getPage(1).then(function(page){
+				var canvas = document.createElement("canvas");
+				var viewport = page.getViewport(1.0);
+				var context = canvas.getContext('2d');
+
+				viewport = page.getViewport(width / viewport.width);
+
+				canvas.height = viewport.height;
+				canvas.width = viewport.width;
+
+				page.render({
+					canvasContext: context,
+					viewport: viewport
+
+				}).then(function (){
+					// set the img src
+					thumbImage.src = canvas.toDataURL();
+				 });
+			});
+		});
+
+
+	}
   </script>
 </html>
