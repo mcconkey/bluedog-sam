@@ -1,0 +1,429 @@
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <script src="https://unpkg.com/pdf-lib@1.4.0"></script>
+	<script src="https://unpkg.com/downloadjs@1.4.7"></script>
+	<script src="https://unpkg.com/pdfjs-dist@2.2.228"></script>
+    <style>
+    	body{ 
+    		margin: 0px;
+    		font-family: Helvetica; 
+    	}
+    	header {
+    		background-color: #154ea3;
+    		padding: 5px;
+    	}
+
+    	h1 { 
+    		color: white;
+    		font-family: Helvetica;
+    		margin: 0px;
+    		}
+    	
+    	main{
+    		padding: 0px;
+    	}
+
+		.thumb{
+			border: gray;
+			border-width: 2px;
+			border-style: solid;
+			padding:4px;
+			height: 150px;
+			width: 100px;
+			float: left;
+			background: lightblue;
+			margin-right: 5px;
+			vertical-align: center;
+		}
+		
+
+		
+		.dropzone{
+			border: gray;
+			border-width: 2px;
+			border-style: solid;
+			padding:4px;
+			height: 150px;
+			width: 25px;
+			float: left;
+			background: lightgray;
+			margin-right: 5px;
+			vertical-align: center;
+		}
+
+		output {
+			padding: 4px;
+			display:block;
+		}
+
+		.filelist {
+			float: left;
+			background: lightgray;
+			width: 200px;
+			height: 90%;
+			margin: 0px;
+			padding: 10px;
+		}
+		
+		.page_number{
+			font-size: 70px;
+			color: white;
+			display: block;
+			text-align: center;
+			margin-top: 25px;
+			
+		}
+		
+		.file_name{
+			font-size: 15px;
+			color: white;
+			display: block;
+			text-align: center;
+		}	
+
+		.file_id{
+			display: none;
+		}
+		
+		button {
+			margin: 5px;
+		}
+		
+		.remove_btn{
+			text-align: right;
+			font-size: 12px;
+			color: white;
+			float: right; 
+			width: 20px;
+			height: 20px;
+			cursor: pointer;
+		}
+		
+		.prototype{
+			font-size: 15px;
+			font-weight: 100;
+		}
+    </style>
+  </head>
+
+  <body>
+  	<header>
+  		<h1>Blue Dog <span class="prototype">PROTOTYPE v.01</span>
+		</h1>
+  	</header>
+    <main>
+  		<div class="filelist">
+			<strong>File Select</strong>
+			<input type="file" id="files" name="files[]" />
+			<output id="list"></output>
+		</div> 
+		<output id="thumbnails">
+
+		</output>
+		<br />
+		<br />
+		<button onClick="downloadPdf();">Save PDF</button>
+	</main>
+  <footer></footer>
+  </body>
+  <script>
+  
+  const { degrees, PDFDocument, rgb, StandardFonts } = PDFLib;
+  
+	//get the file(s)
+
+	const BDDoc = class {
+		constructor(pdfURL, name){
+			this.url = pdfURL;
+			this.name = name;
+			this.id = "ID" + Math.random().toString(16).slice(2);
+		}
+		
+		async readPDF(){
+			var existingPdfBytes = await fetch(this.url).then(res => res.arrayBuffer());
+			var pdfDoc = await PDFDocument.load(existingPdfBytes);
+			
+			// Get the first page of the document
+			var pages = pdfDoc.getPages();
+			//var firstPage = pages[0];
+			
+			//console.log(pages);
+			
+			//iterate over pages
+			for(var i = 0; i < pages.length; i++){
+				var page = new BDPage((i+1), this.name, this.id);
+				page.displayThumbnail();
+			}
+			
+		}
+	}
+	
+	const BDPage = class {
+		//var parent_id;
+		//var page_number = 0;
+		//var file_name = "";
+		
+		constructor(page_num, file_name, id = 0){
+			this.page_number = page_num; 
+			this.file_name = file_name;
+			this.parent_id = id;
+		}
+		
+		displayThumbnail(){
+		
+			var div = document.createElement('div');
+			div.classList.add("thumb");
+			
+			//set up the list to be dragable
+			div.draggable = true;
+			div.addEventListener('drop', dropThumb, false);
+			div.addEventListener('dragstart', dragstart, false);
+			div.addEventListener('dragover', dragover_handler, false);
+			
+			var removeBtn = document.createElement('span');
+			removeBtn.innerHTML = "X";
+			removeBtn.classList.add("remove_btn");
+			removeBtn.addEventListener('click', removeThumb, false);			
+			div.insertBefore(removeBtn, null);
+			
+			
+			
+			var span = document.createElement('span');
+			span.innerHTML = this.page_number;
+			span.classList.add("page_number");
+			div.insertBefore(span, null);
+			
+			var name = document.createElement('span');
+			name.innerHTML = this.file_name;
+			name.classList.add("file_name");
+			div.insertBefore(name, null);
+			
+			var id = document.createElement('span');
+			id.innerHTML = this.parent_id;
+			id.classList.add("file_id");
+			div.insertBefore(id, null);
+			
+			var thumbnails = document.getElementById('thumbnails');
+			
+			thumbnails.insertBefore(div, thumbnails.children[thumbnails.children.length]); //insert the new thumb to before the last dropzone
+		}
+	}
+	
+	var allDocs = [];
+	
+	function removeThumb(ev){
+		//get parent div
+		var targetElement = ev.target;
+		if (targetElement.nodeName == "SPAN") {
+			targetElement = targetElement.parentNode;
+			targetElement.parentNode.removeChild(targetElement);
+		}  
+		
+	}
+  async function handleFileSelect(evt) {
+    var files = evt.target.files; // FileList object
+
+    // Loop through the FileList and render image files as thumbnails.
+    for (var i = 0, f; f = files[i]; i++) {
+
+		  
+      
+	  var reader = new FileReader();
+
+      // Closure to capture the file information.
+      reader.onload = (function(theFile) {
+        return async function(e) {
+		
+			//var pages = pdfDoc.getPages();
+			
+			// Render thumbnail.
+			console.log(theFile.name);
+			
+			var doc = new BDDoc(reader.result, theFile.name); // passes the URL of pdf
+			await doc.readPDF(); //reads the pdf from url
+			
+			allDocs.push(doc);
+
+		
+        };
+      })(f);
+
+      // Read in the image file as a data URL.
+      reader.readAsDataURL(f);
+	  
+	}
+  }
+
+  document.getElementById('files').addEventListener('change', handleFileSelect, false);
+	
+	
+
+	async function showPDFThumbnail(pdfURL){
+		const { degrees, PDFDocument, rgb, StandardFonts } = PDFLib
+		const url = pdfURL;
+		const existingPdfBytes = await fetch(url).then(res => res.arrayBuffer());
+
+		const pdfDoc = await PDFDocument.load(existingPdfBytes);
+
+		// Get the first page of the document
+		const pages = pdfDoc.getPages();
+		const firstPage = pages[0];
+
+		// Serialize the PDFDocument to bytes (a Uint8Array)
+		const pdfBytes = await pdfDoc.save();
+
+		reader = new FileReader();
+		
+		reader.onload = (function(theFile) {
+			return function(e) {
+			// Render thumbnail.
+			var div = document.createElement('div');
+			div.className = "thumb";
+						
+			var img = document.createElement('img');
+			createThumbnail(pdfURL, img, 150, 100);
+			div.appendChild(img);
+			
+			document.getElementById('list').insertBefore(div, null);
+			//showPDFThumbnail(reader.result);
+			};
+      	});
+
+		reader.readAsDataURL(pdfBytes);
+
+		
+	}
+	
+	async function downloadPdf(){
+	
+		//create a new pdf document which will have all the pages
+		var pdf = await new PDFDocument.create();
+		
+		//get the pages in in the order that they're in the output
+		var thumbnails = document.getElementById('thumbnails');
+		
+		for(var i = 0; i < thumbnails.children.length; i++){
+			var page = thumbnails.children[i];
+			// for each child find the parent BDDoc
+			
+			//this ugly beast gets the parent id
+			var docID = thumbnails.children[i].getElementsByClassName("file_id")[0].innerText;			
+			var pageNumber = thumbnails.children[i].getElementsByClassName("page_number")[0].innerText -1; //subtract one to get the array index of page
+						
+			//get the pages parent document
+			var parentDoc = findBDDocumentById(docID);
+			
+			//use the page number to get the page
+			
+			//Efficiency-wise this is really terrible.   Advanced solution should load the PDFByes once... not once per page.
+			var donorPdfBytes = await fetch(parentDoc.url).then(res => res.arrayBuffer());
+			var donorPdfDoc = await PDFDocument.load(donorPdfBytes);
+			
+			var [donorPage] = await pdf.copyPages(donorPdfDoc, [pageNumber]);
+						
+	
+			pdf.addPage(donorPage);
+					
+		}
+		
+		var pdfBytes = await pdf.save();
+		download(pdfBytes, "bluedog-sam.pdf", "application/pdf");
+
+	}
+
+	function findBDDocumentById(id){
+		for(var i = 0; i < allDocs.length; i++){
+			console.log(allDocs[i]);
+			if(allDocs[i].id == id){
+				return allDocs[i];
+			}
+		}
+	}
+	
+
+	// create a thumbnail 
+	async function createThumbnail(filepath, thumbImage, height, width){
+
+		pdfjsLib.disableworker = true;
+		
+		pdfjsLib.getDocument(filepath).then( function (pdf){
+			pdf.getPage(1).then(function(page){
+				var canvas = document.createElement("canvas");
+				var viewport = page.getViewport(1.0);
+				var context = canvas.getContext('2d');
+
+				viewport = page.getViewport(width / viewport.width);
+
+				canvas.height = viewport.height;
+				canvas.width = viewport.width;
+
+				page.render({
+					canvasContext: context,
+					viewport: viewport
+
+				}).then(function (){
+					// set the img src
+					thumbImage.src = canvas.toDataURL();
+				 });
+			});
+		});
+
+
+	}
+	
+	function isbefore(a, b) {
+    if (a.parentNode == b.parentNode) {
+        for (var cur = a; cur; cur = cur.previousSibling) {
+            if (cur === b) {
+                return true;
+            }
+        }
+    }
+    return false;
+	}
+
+	
+	var source;
+	
+	function dragstart(ev) {
+		//console.log("made it to drag start");
+		source = ev.target; //throw source into that ugly global... gross.
+		ev.dataTransfer.effectAllowed = 'move';
+		ev.dataTransfer.setData("text/plain", ev.target);
+		console.log(ev.target);
+	}
+	
+	
+
+	function dropThumb(ev){
+		ev.preventDefault();
+		
+		var targetElement = ev.target;
+		if (targetElement.nodeName == "SPAN") {
+			
+		   targetElement = targetElement.parentNode;   
+		}  
+		
+		
+		var data = ev.dataTransfer.getData("text");
+		
+		//console.log(ev.target);
+		tar = targetElement;
+		
+		//targetElement.parentNode.insertBefore(source, targetElement);
+		console.log("called drop thumb");
+		
+		if (isbefore(source, targetElement)) {
+			targetElement.parentNode.insertBefore(source, targetElement);
+		} else {
+			targetElement.parentNode.insertBefore(source, targetElement.nextSibling);
+		}
+	}
+	
+	function dragover_handler(ev){
+		ev.preventDefault();
+		//ev.dataTransfer.dropEffect = 'move';
+	}
+  </script>
+</html>
