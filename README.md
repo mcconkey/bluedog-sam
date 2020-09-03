@@ -11,5 +11,5 @@ To use:
 6. Provide feedback mcconkey@gmail.com
 
 Known Issues:
-** Some PDFs (like signed/encrypted PDFs) only show up blank.
+* Some PDFs (like signed/encrypted PDFs) only show up blank.
 * It's ugly! I know!
